@@ -1,6 +1,4 @@
 let blockedTags = [];
-const hiddenPosts = new Map();
-let filterTimeout = null;
 
 const syncToLocalStorage = () => {
     try {
@@ -29,10 +27,7 @@ try {
     chrome.storage.onChanged.addListener((changes, namespace) => {
         if (namespace === 'local' && changes.blocked) {
             blockedTags = changes.blocked.newValue;
-            console.log('[9GAG Blocker] Storage changed, new blockedTags:', blockedTags);
             syncToLocalStorage();
-            // Clear debounce on storage change to apply immediately
-            clearTimeout(filterTimeout);
             filterArticles();
         }
     });
@@ -45,11 +40,10 @@ const getPureTagText = (tagText) => {
 };
 
 const addBlockButton = (tagElement) => {
-    if (tagElement.querySelector('button[data-block-btn]')) return;
+    if (tagElement.querySelector('button')) return;
     
     const btn = document.createElement('button');
     btn.textContent = 'Block';
-    btn.setAttribute('data-block-btn', 'true');
     btn.style.marginLeft = '5px';
 
     btn.addEventListener('click', (e) => {
@@ -62,7 +56,7 @@ const addBlockButton = (tagElement) => {
             blockedTags.push(tagText);
             chrome.storage.local.set({blocked: blockedTags}, () => {
                 syncToLocalStorage();
-                // Storage change listener will trigger filterArticles
+                filterArticles();
             });
         }
     }, true);
@@ -71,55 +65,27 @@ const addBlockButton = (tagElement) => {
 };
 
 const filterArticles = () => {
-    console.log('[9GAG Blocker] filterArticles called with blockedTags:', blockedTags);
     const articles = document.querySelectorAll('article');
-    console.log('[9GAG Blocker] Found', articles.length, 'articles');
 
     articles.forEach(article => {
-        // Skip if already removed from DOM
-        if (!article.parentNode) {
-            return;
-        }
-
         const tags = Array.from(article.querySelectorAll('.post-tags a'))
             .map(tag => {
-                if (!tag.querySelector('button[data-block-btn]')) {
+                if (!tag.querySelector('button')) {
                     addBlockButton(tag);
                 }
                 return getPureTagText(tag.innerText);
             });
 
-        const hasBlocked = tags.some(tag => blockedTags.includes(tag));
-
-        if (hasBlocked) {
-            // Should be hidden
-            if (!hiddenPosts.has(article)) {
-                console.log(`[9GAG Blocker] Removing: ${tags.join(', ')}`);
-                hiddenPosts.set(article, {
-                    parent: article.parentNode,
-                    nextSibling: article.nextSibling
-                });
-                article.remove();
+        if (tags.some(tag => blockedTags.includes(tag))) {
+            if (article.style.display !== 'none') {
+                article.style.display = 'none';
             }
         } else {
-            // Should be visible
-            if (hiddenPosts.has(article)) {
-                console.log(`[9GAG Blocker] Restoring: ${tags.join(', ')}`);
-                const {parent, nextSibling} = hiddenPosts.get(article);
-                if (parent && !article.parentNode) {
-                    parent.insertBefore(article, nextSibling);
-                }
-                hiddenPosts.delete(article);
+            if (article.style.display === 'none') {
+                article.style.display = 'block';
             }
         }
     });
-};
-
-const debouncedFilter = () => {
-    clearTimeout(filterTimeout);
-    filterTimeout = setTimeout(() => {
-        filterArticles();
-    }, 50);
 };
 
 const initMutationObserver = () => {
@@ -131,7 +97,7 @@ const initMutationObserver = () => {
     filterArticles();
 
     const observer = new MutationObserver(() => {
-        debouncedFilter();
+        filterArticles();
     });
 
     observer.observe(document.body, {
