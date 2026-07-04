@@ -3,8 +3,9 @@ let blockedTags = [];
 const syncToLocalStorage = () => {
     try {
         localStorage.setItem('gagBlockedTags', JSON.stringify(blockedTags));
+        console.log('[9GAG Blocker] Synced to localStorage:', blockedTags);
     } catch (e) {
-        console.error('[9GAG Blocker] Error syncing:', e);
+        console.error('[9GAG Blocker] Error syncing to localStorage:', e);
     }
 };
 
@@ -14,6 +15,7 @@ const getStorageData = () => {
             if (chrome.runtime.lastError) return;
             blockedTags = data.blocked;
             syncToLocalStorage();
+            console.log('[9GAG Blocker] Loaded from chrome.storage:', blockedTags);
         });
     } catch (e) {
         console.error('[9GAG Blocker] Error getting storage:', e);
@@ -27,24 +29,12 @@ try {
         if (namespace === 'local' && changes.blocked) {
             blockedTags = changes.blocked.newValue;
             syncToLocalStorage();
+            console.log('[9GAG Blocker] Updated from chrome.storage.onChanged:', blockedTags);
         }
     });
 } catch(e) {
     console.error('[9GAG Blocker] Error setting up listener:', e);
 }
-
-// Inject the injector script into the page context BEFORE any other scripts run
-const script = document.createElement('script');
-script.src = chrome.runtime.getURL('injector.js');
-script.onload = function() {
-    console.log('[9GAG Blocker] Injector loaded into page context');
-    this.remove();
-};
-script.onerror = function() {
-    console.error('[9GAG Blocker] Failed to load injector');
-    this.remove();
-};
-(document.head || document.documentElement).prepend(script);
 
 const getPureTagText = (tagText) => {
     return tagText.trim().toLowerCase();
@@ -63,10 +53,16 @@ const addBlockButton = (tagElement) => {
         e.stopImmediatePropagation();
         
         const tagText = getPureTagText(tagElement.innerText);
+        console.log('[9GAG Blocker] Block button clicked for tag:', tagText);
+        
         if (!blockedTags.includes(tagText)) {
             blockedTags.push(tagText);
+            console.log('[9GAG Blocker] Added to blockedTags:', blockedTags);
+            
             chrome.storage.local.set({blocked: blockedTags}, () => {
+                console.log('[9GAG Blocker] Saved to chrome.storage');
                 syncToLocalStorage();
+                console.log('[9GAG Blocker] Synced to localStorage');
             });
         }
     }, true);
@@ -102,7 +98,7 @@ const initBlockButtons = () => {
         characterData: false
     });
 
-    console.log('[9GAG Blocker] content.js loaded - injector.js should now be filtering posts');
+    console.log('[9GAG Blocker] content.js loaded - blocking via injector.js');
 };
 
 initBlockButtons();
