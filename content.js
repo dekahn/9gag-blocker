@@ -1,4 +1,5 @@
 let blockedTags = [];
+const hiddenPosts = new Map(); // Map of article element to their parent
 
 const syncToLocalStorage = () => {
     try {
@@ -69,14 +70,22 @@ const updatePostVisibility = () => {
             });
             
             if (hasBlockedTag) {
-                console.log('[9GAG Blocker] Hiding article with blocked tags:', blockedTagNames);
-                article.style.display = 'none';
-                article.setAttribute('data-blocked-by-gag', 'true');
+                console.log('[9GAG Blocker] Removing article with blocked tags:', blockedTagNames);
+                if (!hiddenPosts.has(article)) {
+                    hiddenPosts.set(article, {
+                        parent: article.parentNode,
+                        nextSibling: article.nextSibling
+                    });
+                    article.remove();
+                }
             } else {
-                if (article.getAttribute('data-blocked-by-gag') === 'true') {
-                    console.log('[9GAG Blocker] Showing previously blocked article');
-                    article.style.display = '';
-                    article.removeAttribute('data-blocked-by-gag');
+                if (hiddenPosts.has(article)) {
+                    console.log('[9GAG Blocker] Restoring previously blocked article');
+                    const {parent, nextSibling} = hiddenPosts.get(article);
+                    if (parent) {
+                        parent.insertBefore(article, nextSibling);
+                    }
+                    hiddenPosts.delete(article);
                 }
             }
         }
