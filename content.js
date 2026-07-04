@@ -35,25 +35,14 @@ try {
     console.error('[9GAG Blocker] Error setting up listener:', e);
 }
 
-// Aggressive CSS to force removal of hidden articles
+// Force grid layout - collapse gaps
 const styleSheet = document.createElement('style');
 styleSheet.textContent = `
-    article[data-blocked="true"] {
-        display: none !important;
-        visibility: hidden !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        width: 0 !important;
-        height: 0 !important;
-        min-height: 0 !important;
-        max-height: 0 !important;
-        min-width: 0 !important;
-        max-width: 0 !important;
-        flex: 0 !important;
-        order: 9999 !important;
-        position: absolute !important;
-        left: -9999px !important;
-        top: -9999px !important;
+    .list-items, [role="main"], main, .main {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 0 !important;
+        grid-auto-flow: row !important;
     }
 `;
 document.head.appendChild(styleSheet);
@@ -99,30 +88,12 @@ const filterArticles = () => {
                 return getPureTagText(tag.innerText);
             });
 
+        // If it matches a blocked tag, REMOVE it completely from the DOM
         if (tags.some(tag => blockedTags.includes(tag))) {
-            article.setAttribute('data-blocked', 'true');
-            // Clear inline styles that might be set
-            article.style.cssText = '';
-        } else {
-            article.removeAttribute('data-blocked');
-            article.style.cssText = '';
+            console.log('[9GAG Blocker] Removing article with tags:', tags.join(', '));
+            article.remove();
         }
     });
-
-    // Find container and trigger reflow
-    let container = document.querySelector('.list-items') || 
-                   document.querySelector('[class*="feed"]') ||
-                   document.querySelector('main') ||
-                   document.querySelector('[role="main"]');
-
-    if (container) {
-        // Force reflow by toggling a property
-        container.style.WebkitTransform = 'translate(0, 0)';
-        void container.offsetHeight;
-        setTimeout(() => {
-            container.style.WebkitTransform = '';
-        }, 0);
-    }
 };
 
 const initMutationObserver = () => {
