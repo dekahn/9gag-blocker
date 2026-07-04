@@ -35,6 +35,18 @@ try {
     console.error('[9GAG Blocker] Error setting up listener:', e);
 }
 
+// Force grid layout - collapse gaps
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+    .list-items, [role="main"], main, .main {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 0 !important;
+        grid-auto-flow: row !important;
+    }
+`;
+document.head.appendChild(styleSheet);
+
 const getPureTagText = (tagText) => {
     return tagText.trim().toLowerCase();
 };
@@ -76,10 +88,10 @@ const filterArticles = () => {
                 return getPureTagText(tag.innerText);
             });
 
+        // If it matches a blocked tag, REMOVE it completely from the DOM
         if (tags.some(tag => blockedTags.includes(tag))) {
-            article.style.display = 'none';
-        } else {
-            article.style.display = '';
+            console.log('[9GAG Blocker] Removing article with tags:', tags.join(', '));
+            article.remove();
         }
     });
 };
@@ -103,7 +115,7 @@ const initMutationObserver = () => {
         characterData: false
     });
 
-    console.log('[9GAG Blocker] Loaded');
+    console.log('[9GAG Blocker] content.js loaded');
 };
 
 initMutationObserver();
