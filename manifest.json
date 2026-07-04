@@ -8,9 +8,6 @@
     "default_popup": "popup.html",
     "default_title": "9GAG Click Blocker"
   },
-  "host_permissions": [
-    "https://9gag.com/*"
-  ],
   "web_accessible_resources": [
     {
       "resources": ["injector.js"],
@@ -20,8 +17,7 @@
   "content_scripts": [
     {
       "matches": ["https://9gag.com/*"],
-      "js": ["content.js"],
-      "run_at": "document_start"
+      "js": ["content.js"]
     }
   ]
 }
