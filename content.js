@@ -35,6 +35,29 @@ try {
     console.error('[9GAG Blocker] Error setting up listener:', e);
 }
 
+// Inject CSS to remove gaps from hidden articles
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+    article[style*="display: none"] {
+        display: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 0 !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        min-width: 0 !important;
+        max-height: 0 !important;
+        flex: 0 !important;
+    }
+    
+    /* Ensure container allows items to wrap/reflow */
+    main, [role="main"], .main, .content {
+        display: grid !important;
+        grid-auto-flow: dense !important;
+    }
+`;
+document.head.appendChild(styleSheet);
+
 const getPureTagText = (tagText) => {
     return tagText.trim().toLowerCase();
 };
