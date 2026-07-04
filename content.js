@@ -14,7 +14,7 @@ const getStorageData = () => {
             if (chrome.runtime.lastError) return;
             blockedTags = data.blocked;
             syncToLocalStorage();
-            filterArticles();
+            tagVisibleLinks();
         });
     } catch (e) {
         console.error('[9GAG Blocker] Error getting storage:', e);
@@ -28,7 +28,7 @@ try {
         if (namespace === 'local' && changes.blocked) {
             blockedTags = changes.blocked.newValue;
             syncToLocalStorage();
-            filterArticles();
+            tagVisibleLinks();
         }
     });
 } catch(e) {
@@ -56,7 +56,6 @@ const addBlockButton = (tagElement) => {
             blockedTags.push(tagText);
             chrome.storage.local.set({blocked: blockedTags}, () => {
                 syncToLocalStorage();
-                filterArticles();
             });
         }
     }, true);
@@ -64,26 +63,10 @@ const addBlockButton = (tagElement) => {
     tagElement.appendChild(btn);
 };
 
-const filterArticles = () => {
-    const articles = document.querySelectorAll('article');
-
-    articles.forEach(article => {
-        const tags = Array.from(article.querySelectorAll('.post-tags a'))
-            .map(tag => {
-                if (!tag.querySelector('button')) {
-                    addBlockButton(tag);
-                }
-                return getPureTagText(tag.innerText);
-            });
-
-        if (tags.some(tag => blockedTags.includes(tag))) {
-            if (article.style.display !== 'none') {
-                article.style.display = 'none';
-            }
-        } else {
-            if (article.style.display === 'none') {
-                article.style.display = 'block';
-            }
+const tagVisibleLinks = () => {
+    document.querySelectorAll('.post-tags a').forEach(tag => {
+        if (!tag.querySelector('button')) {
+            addBlockButton(tag);
         }
     });
 };
@@ -94,10 +77,10 @@ const initMutationObserver = () => {
         return;
     }
 
-    filterArticles();
+    tagVisibleLinks();
 
     const observer = new MutationObserver(() => {
-        filterArticles();
+        tagVisibleLinks();
     });
 
     observer.observe(document.body, {
@@ -111,6 +94,3 @@ const initMutationObserver = () => {
 };
 
 initMutationObserver();
-
-// Notify injector that we're ready
-window.dispatchEvent(new CustomEvent('gagBlockerReady', { detail: { blockedTags } }));
