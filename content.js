@@ -64,13 +64,7 @@ const addBlockButton = (tagElement) => {
     tagElement.appendChild(btn);
 };
 
-const forceLayoutRecalc = () => {
-    // Trigger window resize to force 9GAG's masonry/grid to recalculate
-    window.dispatchEvent(new Event('resize'));
-};
-
 const filterArticles = () => {
-    let changed = false;
     const articles = document.querySelectorAll('article');
 
     articles.forEach(article => {
@@ -85,20 +79,13 @@ const filterArticles = () => {
         if (tags.some(tag => blockedTags.includes(tag))) {
             if (article.style.display !== 'none') {
                 article.style.display = 'none';
-                changed = true;
             }
         } else {
             if (article.style.display === 'none') {
                 article.style.display = 'block';
-                changed = true;
             }
         }
     });
-
-    if (changed) {
-        // Force layout recalc after a microtask
-        Promise.resolve().then(() => forceLayoutRecalc());
-    }
 };
 
 const initMutationObserver = () => {
@@ -124,3 +111,6 @@ const initMutationObserver = () => {
 };
 
 initMutationObserver();
+
+// Notify injector that we're ready
+window.dispatchEvent(new CustomEvent('gagBlockerReady', { detail: { blockedTags } }));
