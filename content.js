@@ -14,7 +14,6 @@ const getStorageData = () => {
             if (chrome.runtime.lastError) return;
             blockedTags = data.blocked;
             syncToLocalStorage();
-            filterArticles();
         });
     } catch (e) {
         console.error('[9GAG Blocker] Error getting storage:', e);
@@ -28,12 +27,24 @@ try {
         if (namespace === 'local' && changes.blocked) {
             blockedTags = changes.blocked.newValue;
             syncToLocalStorage();
-            filterArticles();
         }
     });
 } catch(e) {
     console.error('[9GAG Blocker] Error setting up listener:', e);
 }
+
+// Inject the injector script into the page context BEFORE any other scripts run
+const script = document.createElement('script');
+script.src = chrome.runtime.getURL('injector.js');
+script.onload = function() {
+    console.log('[9GAG Blocker] Injector loaded into page context');
+    this.remove();
+};
+script.onerror = function() {
+    console.error('[9GAG Blocker] Failed to load injector');
+    this.remove();
+};
+(document.head || document.documentElement).prepend(script);
 
 const getPureTagText = (tagText) => {
     return tagText.trim().toLowerCase();
@@ -56,7 +67,6 @@ const addBlockButton = (tagElement) => {
             blockedTags.push(tagText);
             chrome.storage.local.set({blocked: blockedTags}, () => {
                 syncToLocalStorage();
-                filterArticles();
             });
         }
     }, true);
@@ -64,42 +74,25 @@ const addBlockButton = (tagElement) => {
     tagElement.appendChild(btn);
 };
 
-const filterArticles = () => {
-    const articles = document.querySelectorAll('article');
-
-    articles.forEach(article => {
-        const tags = Array.from(article.querySelectorAll('.post-tags a'))
-            .map(tag => {
-                if (!tag.querySelector('button')) {
-                    addBlockButton(tag);
-                }
-                return getPureTagText(tag.innerText);
-            });
-
-        if (tags.some(tag => blockedTags.includes(tag))) {
-            if (article.style.display !== 'none') {
-                console.log('[9GAG Blocker] Blocking article with tags:', tags.join(', '));
-                article.style.display = 'none';
-            }
-        } else {
-            if (article.style.display === 'none') {
-                console.log('[9GAG Blocker] Showing article with tags:', tags.join(', '));
-                article.style.display = 'block';
-            }
+const addBlockButtonsToTags = () => {
+    const tags = document.querySelectorAll('.post-tags a');
+    tags.forEach(tag => {
+        if (!tag.querySelector('button')) {
+            addBlockButton(tag);
         }
     });
 };
 
-const initMutationObserver = () => {
+const initBlockButtons = () => {
     if (!document.body) {
-        setTimeout(initMutationObserver, 100);
+        setTimeout(initBlockButtons, 100);
         return;
     }
 
-    filterArticles();
+    addBlockButtonsToTags();
 
     const observer = new MutationObserver(() => {
-        filterArticles();
+        addBlockButtonsToTags();
     });
 
     observer.observe(document.body, {
@@ -109,7 +102,7 @@ const initMutationObserver = () => {
         characterData: false
     });
 
-    console.log('[9GAG Blocker] content.js loaded');
+    console.log('[9GAG Blocker] content.js loaded - injector.js should now be filtering posts');
 };
 
-initMutationObserver();
+initBlockButtons();
