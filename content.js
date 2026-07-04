@@ -1,8 +1,49 @@
 const BUTTON_TEXT = 'Block';
 const STORAGE_KEY = 'blockedTags';
 
-// Fetch the list of blocked tags from localStorage
-let blockedTags = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+let blockedTags = [];
+
+/**
+ * Sync chrome.storage to localStorage for content script access
+ */
+function syncStorageToLocal() {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(blockedTags));
+    } catch (e) {
+        console.error('[9GAG Blocker] localStorage sync error:', e);
+    }
+}
+
+/**
+ * Load blocked tags from chrome.storage
+ */
+function loadBlockedTags() {
+    chrome.storage.local.get([STORAGE_KEY], (result) => {
+        if (chrome.runtime.lastError) {
+            console.error('[9GAG Blocker] Error loading tags:', chrome.runtime.lastError);
+            return;
+        }
+        blockedTags = result[STORAGE_KEY] || [];
+        syncStorageToLocal();
+        console.log('[9GAG Blocker] Loaded tags:', blockedTags);
+        createBlockedTagsSection();
+        updateBlockedTagsSection();
+        filterArticles();
+    });
+}
+
+/**
+ * Listen for storage changes from popup or other scripts
+ */
+chrome.storage.onChanged.addListener((changes, namespace) => {
+    if (namespace === 'local' && changes[STORAGE_KEY]) {
+        blockedTags = changes[STORAGE_KEY].newValue || [];
+        syncStorageToLocal();
+        console.log('[9GAG Blocker] Storage changed, new tags:', blockedTags);
+        updateBlockedTagsSection();
+        filterArticles();
+    }
+});
 
 /**
  * Creates and inserts a "Blocked Tags" section into the 9GAG page.
@@ -50,22 +91,17 @@ function updateBlockedTagsSection() {
             const index = blockedTags.indexOf(tag);
             if (index > -1) {
                 blockedTags.splice(index, 1);
-                saveTagsToLocalStorage();
-                filterArticles();
-                updateBlockedTagsSection();
+                chrome.storage.local.set({[STORAGE_KEY]: blockedTags}, () => {
+                    syncStorageToLocal();
+                    filterArticles();
+                    updateBlockedTagsSection();
+                });
             }
         });
 
         li.appendChild(btn);
         ulElement.appendChild(li);
     });
-}
-
-/**
- * Persists the blocked tags to localStorage.
- */
-function saveTagsToLocalStorage() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(blockedTags));
 }
 
 /**
@@ -94,9 +130,11 @@ function addBlockButton(tagElement) {
         if (!blockedTags.includes(tagText)) {
             blockedTags.push(tagText);
             console.log(`Tag "${tagText}" blocked.`);
-            saveTagsToLocalStorage();
-            filterArticles();
-            updateBlockedTagsSection();
+            chrome.storage.local.set({[STORAGE_KEY]: blockedTags}, () => {
+                syncStorageToLocal();
+                filterArticles();
+                updateBlockedTagsSection();
+            });
         }
     });
 
@@ -134,10 +172,8 @@ function filterArticles() {
     });
 }
 
-// Initial setup
-createBlockedTagsSection(); 
-updateBlockedTagsSection();
-filterArticles();
+// Initial load
+loadBlockedTags();
 
 // Watch for DOM changes
 const observer = new MutationObserver(() => {
@@ -146,4 +182,4 @@ const observer = new MutationObserver(() => {
 
 observer.observe(document.body, { attributes: true, childList: true, subtree: true });
 
-console.log('[9GAG Blocker] Loaded');
+console.log('[9GAG Blocker] Content script loaded');
