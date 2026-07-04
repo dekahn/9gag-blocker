@@ -1,4 +1,5 @@
 let blockedTags = [];
+const removedArticles = new Map(); // Store removed articles by ID so we can restore them
 
 const syncToLocalStorage = () => {
     try {
@@ -45,6 +46,7 @@ const addBlockButton = (tagElement) => {
     const btn = document.createElement('button');
     btn.textContent = 'Block';
     btn.style.marginLeft = '5px';
+    btn.style.cursor = 'pointer';
 
     btn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -64,19 +66,13 @@ const addBlockButton = (tagElement) => {
     tagElement.appendChild(btn);
 };
 
-// Inject CSS to hide blocked articles properly
-const styleSheet = document.createElement('style');
-styleSheet.textContent = `
-    article.gag-blocked {
-        display: none !important;
-    }
-`;
-document.head.appendChild(styleSheet);
-
 const filterArticles = () => {
     const articles = document.querySelectorAll('article');
 
     articles.forEach(article => {
+        const articleId = article.id || Math.random().toString(36);
+        article.id = articleId;
+
         const tags = Array.from(article.querySelectorAll('.post-tags a'))
             .map(tag => {
                 if (!tag.querySelector('button')) {
@@ -88,9 +84,29 @@ const filterArticles = () => {
         const shouldBlock = tags.some(tag => blockedTags.includes(tag));
 
         if (shouldBlock) {
-            article.classList.add('gag-blocked');
+            // Remove from DOM if not already removed
+            if (article.parentNode) {
+                removedArticles.set(articleId, {
+                    article: article,
+                    parent: article.parentNode,
+                    nextSibling: article.nextSibling,
+                    tags: tags
+                });
+                article.parentNode.removeChild(article);
+                console.log('[9GAG Blocker] Removed article:', tags.join(', '));
+            }
         } else {
-            article.classList.remove('gag-blocked');
+            // Re-add to DOM if it was removed
+            if (removedArticles.has(articleId)) {
+                const stored = removedArticles.get(articleId);
+                if (stored.nextSibling) {
+                    stored.parent.insertBefore(article, stored.nextSibling);
+                } else {
+                    stored.parent.appendChild(article);
+                }
+                removedArticles.delete(articleId);
+                console.log('[9GAG Blocker] Restored article:', tags.join(', '));
+            }
         }
     });
 };
@@ -101,8 +117,10 @@ const initMutationObserver = () => {
         return;
     }
 
+    // Initial filter
     filterArticles();
 
+    // Watch for new articles being added
     const observer = new MutationObserver(() => {
         filterArticles();
     });
@@ -114,7 +132,7 @@ const initMutationObserver = () => {
         characterData: false
     });
 
-    console.log('[9GAG Blocker] content.js loaded');
+    console.log('[9GAG Blocker] content.js loaded - removing blocked posts from DOM');
 };
 
 initMutationObserver();
