@@ -1,12 +1,9 @@
 (function () {
-    let cachedBlockedTags = [];
-
     function getBlockedTags() {
         try {
             const raw = localStorage.getItem('gagBlockedTags');
             const parsed = raw ? JSON.parse(raw) : [];
-            cachedBlockedTags = Array.isArray(parsed) ? parsed : [];
-            return cachedBlockedTags;
+            return Array.isArray(parsed) ? parsed : [];
         } catch (e) {
             return [];
         }
@@ -134,12 +131,5 @@
         } catch (e) {}
     });
 
-    // Listen for updates from content.js
-    window.addEventListener('blockedTagsUpdated', () => {
-        console.log('[9GAG Blocker] Blocked tags updated, reloading cache');
-        getBlockedTags();
-    });
-
-    // Initial load
-    getBlockedTags();
+    console.log('[9GAG Blocker] injector.js loaded');
 })();
