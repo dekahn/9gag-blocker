@@ -54,6 +54,8 @@
             console.log('[9GAG Blocker Injector] JSON.parse intercept, blockedTags:', blockedTags);
             if (blockedTags.length > 0) {
                 obj = filterBlockedPosts(obj, blockedTags);
+                // Notify that data was filtered
+                window.dispatchEvent(new CustomEvent('9gag-data-filtered'));
             }
         }
         
@@ -83,6 +85,8 @@
 
             if (filtered !== data) {
                 console.log('[9GAG Blocker Injector] Fetch response filtered');
+                // Notify that data was filtered
+                window.dispatchEvent(new CustomEvent('9gag-data-filtered'));
                 return new Response(JSON.stringify(filtered), {
                     status: response.status,
                     statusText: response.statusText,
