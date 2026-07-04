@@ -1,91 +1,67 @@
-(function () {
+(function() {
+    // Get blocked tags from localStorage
     function getBlockedTags() {
         try {
             const raw = localStorage.getItem('gagBlockedTags');
-            const parsed = raw ? JSON.parse(raw) : [];
-            return Array.isArray(parsed) ? parsed : [];
+            return raw ? JSON.parse(raw) : [];
         } catch (e) {
             return [];
         }
     }
 
-    function filterBlockedPosts(node, blockedTags) {
-        if (!node || typeof node !== 'object') return node;
+    // Filter blocked posts from data structure
+    function filterBlockedPosts(obj, blockedTags) {
+        if (!obj || typeof obj !== 'object') return obj;
 
-        if (Array.isArray(node)) {
-            const isPostArray = node.length > 0 && node.some(
-                item => item && typeof item === 'object' && Array.isArray(item.tags)
-            );
-
-            if (isPostArray) {
-                const initialLength = node.length;
-                const filtered = node.filter((post) => {
-                    if (!post || !Array.isArray(post.tags)) return true;
-                    const hasBlocked = post.tags.some((tag) => {
-                        const key = tag && typeof tag.key === 'string' ? tag.key.toLowerCase() : '';
-                        return blockedTags.includes(key);
-                    });
-                    if (hasBlocked) {
-                        console.log('[9GAG Blocker] ✓ Removed post with tags:', post.tags.map(t => t.key).join(', '));
-                    }
-                    return !hasBlocked;
-                });
+        // Handle arrays (post lists)
+        if (Array.isArray(obj)) {
+            return obj.filter(item => {
+                if (!item || typeof item !== 'object') return true;
                 
-                if (filtered.length !== initialLength) {
-                    console.log('[9GAG Blocker] Result:', initialLength, '→', filtered.length, 'posts');
-                    return filtered;
+                // Check if this is a post with tags
+                if (item.tags && Array.isArray(item.tags)) {
+                    const hasBlocked = item.tags.some(tag => {
+                        const tagKey = tag?.key ? tag.key.toLowerCase() : '';
+                        return blockedTags.includes(tagKey);
+                    });
+                    return !hasBlocked;
                 }
-                return node;
-            }
-
-            let arrayChanged = false;
-            const newArray = node.map(item => {
-                const res = filterBlockedPosts(item, blockedTags);
-                if (res !== item) arrayChanged = true;
-                return res;
+                
+                return true;
             });
-            return arrayChanged ? newArray : node;
         }
 
-        let objChanged = false;
-        const newObj = {};
-        for (const key in node) {
-            const res = filterBlockedPosts(node[key], blockedTags);
-            if (res !== node[key]) objChanged = true;
-            newObj[key] = res;
+        // Handle objects - recurse into properties
+        const result = {};
+        for (const key in obj) {
+            result[key] = filterBlockedPosts(obj[key], blockedTags);
         }
-        return objChanged ? newObj : node;
+        return result;
     }
 
-    // JSON parse interception
+    // Intercept JSON.parse
     const originalParse = JSON.parse;
     JSON.parse = function(text, reviver) {
-        let shouldFilter = false;
-        
-        if (typeof text === 'string' && text.length < 10_000_000) { 
-            if (text.includes('"tags"') && text.includes('"key"')) {
-                shouldFilter = true;
-            }
-        }
-
         let obj = originalParse.call(this, text, reviver);
         
-        if (shouldFilter) {
+        // Only filter if this looks like it contains posts
+        if (typeof text === 'string' && text.includes('"tags"') && text.includes('"key"')) {
             const blockedTags = getBlockedTags();
-            if (blockedTags.length > 0 && obj) {
+            if (blockedTags.length > 0) {
                 obj = filterBlockedPosts(obj, blockedTags);
             }
         }
+        
         return obj;
     };
 
-    // Fetch interception for continuous scrolling
+    // Intercept fetch responses
     const originalFetch = window.fetch;
-    window.fetch = async function (...args) {
+    window.fetch = async function(...args) {
         const response = await originalFetch.apply(this, args);
-        const contentType = response.headers.get('content-type') || '';
         
-        if (!contentType.includes('application/json')) {
+        // Only process JSON responses
+        if (!response.headers.get('content-type')?.includes('application/json')) {
             return response;
         }
 
@@ -95,9 +71,10 @@
         }
 
         try {
-            const data = await response.clone().json();
+            const cloned = response.clone();
+            let data = await cloned.json();
             const filtered = filterBlockedPosts(data, blockedTags);
-            
+
             if (filtered !== data) {
                 return new Response(JSON.stringify(filtered), {
                     status: response.status,
@@ -105,31 +82,12 @@
                     headers: response.headers
                 });
             }
-            return response;
         } catch (e) {
-            return response;
+            // Not JSON or error parsing, return original
         }
+
+        return response;
     };
 
-    // Fallback: Intercept Vue/Nuxt state directly
-    const stateVars = ['__NUXT__', '__INITIAL_STATE__'];
-    stateVars.forEach(varName => {
-        let internalValue = window[varName];
-        try {
-            Object.defineProperty(window, varName, {
-                get: () => internalValue,
-                set: (newVal) => {
-                    const blockedTags = getBlockedTags();
-                    if (blockedTags.length > 0 && newVal) {
-                        internalValue = filterBlockedPosts(newVal, blockedTags);
-                    } else {
-                        internalValue = newVal;
-                    }
-                },
-                configurable: true
-            });
-        } catch (e) {}
-    });
-
-    console.log('[9GAG Blocker] injector.js loaded');
+    console.log('[9GAG Blocker] Injector loaded - filtering at API level');
 })();
