@@ -1,3 +1,13 @@
+// Inject the injector script into page context to filter at API level
+(function injectFilterScript() {
+    const script = document.createElement('script');
+    script.src = chrome.runtime.getURL('injector.js');
+    script.onload = function() {
+        this.remove();
+    };
+    (document.head || document.documentElement).appendChild(script);
+})();
+
 let blockedTags = [];
 
 const syncToLocalStorage = () => {
