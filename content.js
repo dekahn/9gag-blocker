@@ -35,27 +35,6 @@ try {
     console.error('[9GAG Blocker] Error setting up listener:', e);
 }
 
-// Force removed elements to take zero space
-const styleSheet = document.createElement('style');
-styleSheet.textContent = `
-    article[style*="display: none"] {
-        display: none !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        width: 0 !important;
-        height: 0 !important;
-        min-height: 0 !important;
-        max-height: 0 !important;
-        flex: 0 !important;
-    }
-    
-    .list-items, .post-container, [class*="feed"], [class*="grid"] {
-        display: grid !important;
-        grid-auto-flow: row !important;
-    }
-`;
-document.head.appendChild(styleSheet);
-
 const getPureTagText = (tagText) => {
     return tagText.trim().toLowerCase();
 };
@@ -87,13 +66,6 @@ const addBlockButton = (tagElement) => {
 
 const filterArticles = () => {
     const articles = document.querySelectorAll('article');
-    
-    // Find the container - try common selectors
-    let container = document.querySelector('.list-items') || 
-                   document.querySelector('.post-container') ||
-                   document.querySelector('main') ||
-                   document.querySelector('[role="main"]') ||
-                   articles[0]?.parentElement;
 
     articles.forEach(article => {
         const tags = Array.from(article.querySelectorAll('.post-tags a'))
@@ -114,18 +86,6 @@ const filterArticles = () => {
             }
         }
     });
-
-    // Force browser reflow to recalculate layout
-    if (container) {
-        const originalDisplay = container.style.display;
-        container.style.display = 'block';
-        // Trigger reflow
-        void container.offsetHeight;
-        // Reset
-        setTimeout(() => { 
-            container.style.display = originalDisplay || ''; 
-        }, 0);
-    }
 };
 
 const initMutationObserver = () => {
