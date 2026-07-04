@@ -35,13 +35,22 @@ try {
     console.error('[9GAG Blocker] Error setting up listener:', e);
 }
 
-// Force grid layout - collapse gaps
+// Force removed elements to take zero space
 const styleSheet = document.createElement('style');
 styleSheet.textContent = `
-    .list-items, [role="main"], main, .main {
+    article[style*="display: none"] {
+        display: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 0 !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        max-height: 0 !important;
+        flex: 0 !important;
+    }
+    
+    .list-items, .post-container, [class*="feed"], [class*="grid"] {
         display: grid !important;
-        grid-template-columns: 1fr !important;
-        gap: 0 !important;
         grid-auto-flow: row !important;
     }
 `;
@@ -78,6 +87,13 @@ const addBlockButton = (tagElement) => {
 
 const filterArticles = () => {
     const articles = document.querySelectorAll('article');
+    
+    // Find the container - try common selectors
+    let container = document.querySelector('.list-items') || 
+                   document.querySelector('.post-container') ||
+                   document.querySelector('main') ||
+                   document.querySelector('[role="main"]') ||
+                   articles[0]?.parentElement;
 
     articles.forEach(article => {
         const tags = Array.from(article.querySelectorAll('.post-tags a'))
@@ -88,12 +104,28 @@ const filterArticles = () => {
                 return getPureTagText(tag.innerText);
             });
 
-        // If it matches a blocked tag, REMOVE it completely from the DOM
         if (tags.some(tag => blockedTags.includes(tag))) {
-            console.log('[9GAG Blocker] Removing article with tags:', tags.join(', '));
-            article.remove();
+            if (article.style.display !== 'none') {
+                article.style.display = 'none';
+            }
+        } else {
+            if (article.style.display === 'none') {
+                article.style.display = 'block';
+            }
         }
     });
+
+    // Force browser reflow to recalculate layout
+    if (container) {
+        const originalDisplay = container.style.display;
+        container.style.display = 'block';
+        // Trigger reflow
+        void container.offsetHeight;
+        // Reset
+        setTimeout(() => { 
+            container.style.display = originalDisplay || ''; 
+        }, 0);
+    }
 };
 
 const initMutationObserver = () => {
