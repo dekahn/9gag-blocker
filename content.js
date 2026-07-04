@@ -1,5 +1,4 @@
 let blockedTags = [];
-const hiddenArticles = new Map(); // Store hidden articles for potential un-blocking
 
 const syncToLocalStorage = () => {
     try {
@@ -65,14 +64,14 @@ const addBlockButton = (tagElement) => {
     tagElement.appendChild(btn);
 };
 
-const collapseStyles = {
-    'visibility': 'hidden',
-    'height': '0',
-    'margin': '0',
-    'padding': '0',
-    'border': 'none',
-    'overflow': 'hidden'
-};
+// Inject CSS to hide blocked articles properly
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+    article.gag-blocked {
+        display: none !important;
+    }
+`;
+document.head.appendChild(styleSheet);
 
 const filterArticles = () => {
     const articles = document.querySelectorAll('article');
@@ -89,15 +88,9 @@ const filterArticles = () => {
         const shouldBlock = tags.some(tag => blockedTags.includes(tag));
 
         if (shouldBlock) {
-            // Apply collapse styles
-            Object.assign(article.style, collapseStyles);
-            hiddenArticles.set(article, tags);
+            article.classList.add('gag-blocked');
         } else {
-            // Remove collapse styles
-            Object.keys(collapseStyles).forEach(key => {
-                article.style[key] = '';
-            });
-            hiddenArticles.delete(article);
+            article.classList.remove('gag-blocked');
         }
     });
 };
@@ -121,7 +114,7 @@ const initMutationObserver = () => {
         characterData: false
     });
 
-    console.log('[9GAG Blocker] content.js loaded - using collapse method');
+    console.log('[9GAG Blocker] content.js loaded');
 };
 
 initMutationObserver();
