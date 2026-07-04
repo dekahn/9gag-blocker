@@ -10,16 +10,36 @@
         }
     }
 
-    // Filter blocked posts from data structure
+    // Filter blocked posts from data structure - handle nested posts
     function filterBlockedPosts(obj, blockedTags) {
         if (!obj || typeof obj !== 'object') return obj;
 
-        // Handle arrays (post lists)
+        // Handle 9GAG API response: { data: { posts: [...] } }
+        if (obj.data && obj.data.posts && Array.isArray(obj.data.posts)) {
+            console.log('[9GAG Blocker Injector] Found 9GAG posts structure, filtering...');
+            obj.data.posts = obj.data.posts.filter(post => {
+                if (!post || typeof post !== 'object') return true;
+                
+                if (post.tags && Array.isArray(post.tags)) {
+                    const hasBlocked = post.tags.some(tag => {
+                        const tagKey = tag?.key ? tag.key.toLowerCase() : '';
+                        return blockedTags.includes(tagKey);
+                    });
+                    if (hasBlocked) {
+                        console.log('[9GAG Blocker Injector] Filtered post with tags:', post.tags.map(t => t.key).join(', '));
+                    }
+                    return !hasBlocked;
+                }
+                return true;
+            });
+            return obj;
+        }
+
+        // Handle direct arrays (post lists)
         if (Array.isArray(obj)) {
             return obj.filter(item => {
                 if (!item || typeof item !== 'object') return true;
                 
-                // Check if this is a post with tags
                 if (item.tags && Array.isArray(item.tags)) {
                     const hasBlocked = item.tags.some(tag => {
                         const tagKey = tag?.key ? tag.key.toLowerCase() : '';
@@ -30,7 +50,6 @@
                     }
                     return !hasBlocked;
                 }
-                
                 return true;
             });
         }
@@ -42,25 +61,6 @@
         }
         return result;
     }
-
-    // Intercept JSON.parse
-    const originalParse = JSON.parse;
-    JSON.parse = function(text, reviver) {
-        let obj = originalParse.call(this, text, reviver);
-        
-        // Only filter if this looks like it contains posts
-        if (typeof text === 'string' && text.includes('"tags"') && text.includes('"key"')) {
-            const blockedTags = getBlockedTags();
-            console.log('[9GAG Blocker Injector] JSON.parse intercept, blockedTags:', blockedTags);
-            if (blockedTags.length > 0) {
-                obj = filterBlockedPosts(obj, blockedTags);
-                // Notify that data was filtered
-                window.dispatchEvent(new CustomEvent('9gag-data-filtered'));
-            }
-        }
-        
-        return obj;
-    };
 
     // Intercept fetch responses
     const originalFetch = window.fetch;
@@ -84,9 +84,7 @@
             const filtered = filterBlockedPosts(data, blockedTags);
 
             if (filtered !== data) {
-                console.log('[9GAG Blocker Injector] Fetch response filtered');
-                // Notify that data was filtered
-                window.dispatchEvent(new CustomEvent('9gag-data-filtered'));
+                console.log('[9GAG Blocker Injector] Fetch response filtered, blockedTags:', blockedTags);
                 return new Response(JSON.stringify(filtered), {
                     status: response.status,
                     statusText: response.statusText,
@@ -100,5 +98,5 @@
         return response;
     };
 
-    console.log('[9GAG Blocker Injector] Loaded and intercepting at API level');
+    console.log('[9GAG Blocker Injector] Loaded - intercepting fetch at API level');
 })();
