@@ -2,18 +2,12 @@
   "manifest_version": 3,
   "name": "9GAG Click Blocker",
   "version": "1.1",
-  "description": "Block unwanted tags on 9GAG and filter out posts before they load.",
-  "permissions": ["storage", "tabs"],
+  "description": "Block unwanted tags on 9GAG.",
+  "permissions": ["storage"],
   "action": {
     "default_popup": "popup.html",
     "default_title": "9GAG Click Blocker"
   },
-  "web_accessible_resources": [
-    {
-      "resources": ["injector.js"],
-      "matches": ["https://9gag.com/*"]
-    }
-  ],
   "content_scripts": [
     {
       "matches": ["https://9gag.com/*"],
