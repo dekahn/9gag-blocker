@@ -14,6 +14,7 @@ const getStorageData = () => {
             if (chrome.runtime.lastError) return;
             blockedTags = data.blocked;
             syncToLocalStorage();
+            filterArticles();
         });
     } catch (e) {
         console.error('[9GAG Blocker] Error getting storage:', e);
@@ -27,6 +28,7 @@ try {
         if (namespace === 'local' && changes.blocked) {
             blockedTags = changes.blocked.newValue;
             syncToLocalStorage();
+            filterArticles();
         }
     });
 } catch(e) {
@@ -54,6 +56,7 @@ const addBlockButton = (tagElement) => {
             blockedTags.push(tagText);
             chrome.storage.local.set({blocked: blockedTags}, () => {
                 syncToLocalStorage();
+                filterArticles();
             });
         }
     }, true);
@@ -61,26 +64,42 @@ const addBlockButton = (tagElement) => {
     tagElement.appendChild(btn);
 };
 
-const addBlockButtonsToTags = () => {
-    const tags = document.querySelectorAll('.post-tags a');
-    tags.forEach(tag => {
-        if (!tag.querySelector('button')) {
-            addBlockButton(tag);
+const filterArticles = () => {
+    const articles = document.querySelectorAll('article');
+
+    articles.forEach(article => {
+        const tags = Array.from(article.querySelectorAll('.post-tags a'))
+            .map(tag => {
+                if (!tag.querySelector('button')) {
+                    addBlockButton(tag);
+                }
+                return getPureTagText(tag.innerText);
+            });
+
+        if (tags.some(tag => blockedTags.includes(tag))) {
+            if (article.style.display !== 'none') {
+                console.log('[9GAG Blocker] Blocking article with tags:', tags.join(', '));
+                article.style.display = 'none';
+            }
+        } else {
+            if (article.style.display === 'none') {
+                console.log('[9GAG Blocker] Showing article with tags:', tags.join(', '));
+                article.style.display = 'block';
+            }
         }
     });
 };
 
-// Add block buttons when page loads
-const initBlockButtons = () => {
+const initMutationObserver = () => {
     if (!document.body) {
-        setTimeout(initBlockButtons, 100);
+        setTimeout(initMutationObserver, 100);
         return;
     }
 
-    addBlockButtonsToTags();
+    filterArticles();
 
     const observer = new MutationObserver(() => {
-        addBlockButtonsToTags();
+        filterArticles();
     });
 
     observer.observe(document.body, {
@@ -93,12 +112,4 @@ const initBlockButtons = () => {
     console.log('[9GAG Blocker] content.js loaded');
 };
 
-// Listen for API filter events and trigger layout reflow
-window.addEventListener('9gag-data-filtered', () => {
-    console.log('[9GAG Blocker] Data filtered, triggering reflow');
-    // Trigger a native scroll adjustment to force 9GAG to re-calculate layout
-    window.scrollBy(0, 1);
-    window.scrollBy(0, -1);
-});
-
-initBlockButtons();
+initMutationObserver();
