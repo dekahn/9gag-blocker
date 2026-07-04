@@ -1,13 +1,3 @@
-// Inject the injector script into page context to filter at API level
-(function injectFilterScript() {
-    const script = document.createElement('script');
-    script.src = chrome.runtime.getURL('injector.js');
-    script.onload = function() {
-        this.remove();
-    };
-    (document.head || document.documentElement).appendChild(script);
-})();
-
 let blockedTags = [];
 
 const syncToLocalStorage = () => {
@@ -24,7 +14,7 @@ const getStorageData = () => {
             if (chrome.runtime.lastError) return;
             blockedTags = data.blocked;
             syncToLocalStorage();
-            tagVisibleLinks();
+            filterArticles();
         });
     } catch (e) {
         console.error('[9GAG Blocker] Error getting storage:', e);
@@ -38,7 +28,7 @@ try {
         if (namespace === 'local' && changes.blocked) {
             blockedTags = changes.blocked.newValue;
             syncToLocalStorage();
-            tagVisibleLinks();
+            filterArticles();
         }
     });
 } catch(e) {
@@ -66,6 +56,7 @@ const addBlockButton = (tagElement) => {
             blockedTags.push(tagText);
             chrome.storage.local.set({blocked: blockedTags}, () => {
                 syncToLocalStorage();
+                filterArticles();
             });
         }
     }, true);
@@ -73,10 +64,26 @@ const addBlockButton = (tagElement) => {
     tagElement.appendChild(btn);
 };
 
-const tagVisibleLinks = () => {
-    document.querySelectorAll('.post-tags a').forEach(tag => {
-        if (!tag.querySelector('button')) {
-            addBlockButton(tag);
+const filterArticles = () => {
+    const articles = document.querySelectorAll('article');
+
+    articles.forEach(article => {
+        const tags = Array.from(article.querySelectorAll('.post-tags a'))
+            .map(tag => {
+                if (!tag.querySelector('button')) {
+                    addBlockButton(tag);
+                }
+                return getPureTagText(tag.innerText);
+            });
+
+        if (tags.some(tag => blockedTags.includes(tag))) {
+            if (article.style.display !== 'none') {
+                article.style.display = 'none';
+            }
+        } else {
+            if (article.style.display === 'none') {
+                article.style.display = 'block';
+            }
         }
     });
 };
@@ -87,10 +94,10 @@ const initMutationObserver = () => {
         return;
     }
 
-    tagVisibleLinks();
+    filterArticles();
 
     const observer = new MutationObserver(() => {
-        tagVisibleLinks();
+        filterArticles();
     });
 
     observer.observe(document.body, {
