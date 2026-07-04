@@ -10,17 +10,11 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["help.html"],
-      "matches": ["<all_urls>"]
+      "resources": ["injector.js"],
+      "matches": ["https://9gag.com/*"]
     }
   ],
   "content_scripts": [
-    {
-      "matches": ["https://9gag.com/*"],
-      "js": ["injector.js"],
-      "world": "MAIN",
-      "run_at": "document_start"
-    },
     {
       "matches": ["https://9gag.com/*"],
       "js": ["content.js"]
