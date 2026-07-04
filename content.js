@@ -35,23 +35,25 @@ try {
     console.error('[9GAG Blocker] Error setting up listener:', e);
 }
 
-// Force removed elements to take zero space
+// Aggressive CSS to force removal of hidden articles
 const styleSheet = document.createElement('style');
 styleSheet.textContent = `
-    article[style*="display: none"] {
+    article[data-blocked="true"] {
         display: none !important;
+        visibility: hidden !important;
         margin: 0 !important;
         padding: 0 !important;
         width: 0 !important;
         height: 0 !important;
         min-height: 0 !important;
         max-height: 0 !important;
+        min-width: 0 !important;
+        max-width: 0 !important;
         flex: 0 !important;
-    }
-    
-    .list-items, .post-container, [class*="feed"], [class*="grid"] {
-        display: grid !important;
-        grid-auto-flow: row !important;
+        order: 9999 !important;
+        position: absolute !important;
+        left: -9999px !important;
+        top: -9999px !important;
     }
 `;
 document.head.appendChild(styleSheet);
@@ -87,13 +89,6 @@ const addBlockButton = (tagElement) => {
 
 const filterArticles = () => {
     const articles = document.querySelectorAll('article');
-    
-    // Find the container - try common selectors
-    let container = document.querySelector('.list-items') || 
-                   document.querySelector('.post-container') ||
-                   document.querySelector('main') ||
-                   document.querySelector('[role="main"]') ||
-                   articles[0]?.parentElement;
 
     articles.forEach(article => {
         const tags = Array.from(article.querySelectorAll('.post-tags a'))
@@ -105,25 +100,27 @@ const filterArticles = () => {
             });
 
         if (tags.some(tag => blockedTags.includes(tag))) {
-            if (article.style.display !== 'none') {
-                article.style.display = 'none';
-            }
+            article.setAttribute('data-blocked', 'true');
+            // Clear inline styles that might be set
+            article.style.cssText = '';
         } else {
-            if (article.style.display === 'none') {
-                article.style.display = 'block';
-            }
+            article.removeAttribute('data-blocked');
+            article.style.cssText = '';
         }
     });
 
-    // Force browser reflow to recalculate layout
+    // Find container and trigger reflow
+    let container = document.querySelector('.list-items') || 
+                   document.querySelector('[class*="feed"]') ||
+                   document.querySelector('main') ||
+                   document.querySelector('[role="main"]');
+
     if (container) {
-        const originalDisplay = container.style.display;
-        container.style.display = 'block';
-        // Trigger reflow
+        // Force reflow by toggling a property
+        container.style.WebkitTransform = 'translate(0, 0)';
         void container.offsetHeight;
-        // Reset
-        setTimeout(() => { 
-            container.style.display = originalDisplay || ''; 
+        setTimeout(() => {
+            container.style.WebkitTransform = '';
         }, 0);
     }
 };
