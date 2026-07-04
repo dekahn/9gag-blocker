@@ -14,7 +14,6 @@ const getStorageData = () => {
             if (chrome.runtime.lastError) return;
             blockedTags = data.blocked;
             syncToLocalStorage();
-            filterArticles();
         });
     } catch (e) {
         console.error('[9GAG Blocker] Error getting storage:', e);
@@ -28,24 +27,11 @@ try {
         if (namespace === 'local' && changes.blocked) {
             blockedTags = changes.blocked.newValue;
             syncToLocalStorage();
-            filterArticles();
         }
     });
 } catch(e) {
     console.error('[9GAG Blocker] Error setting up listener:', e);
 }
-
-// Force grid layout - collapse gaps
-const styleSheet = document.createElement('style');
-styleSheet.textContent = `
-    .list-items, [role="main"], main, .main {
-        display: grid !important;
-        grid-template-columns: 1fr !important;
-        gap: 0 !important;
-        grid-auto-flow: row !important;
-    }
-`;
-document.head.appendChild(styleSheet);
 
 const getPureTagText = (tagText) => {
     return tagText.trim().toLowerCase();
@@ -68,7 +54,6 @@ const addBlockButton = (tagElement) => {
             blockedTags.push(tagText);
             chrome.storage.local.set({blocked: blockedTags}, () => {
                 syncToLocalStorage();
-                filterArticles();
             });
         }
     }, true);
@@ -76,36 +61,26 @@ const addBlockButton = (tagElement) => {
     tagElement.appendChild(btn);
 };
 
-const filterArticles = () => {
-    const articles = document.querySelectorAll('article');
-
-    articles.forEach(article => {
-        const tags = Array.from(article.querySelectorAll('.post-tags a'))
-            .map(tag => {
-                if (!tag.querySelector('button')) {
-                    addBlockButton(tag);
-                }
-                return getPureTagText(tag.innerText);
-            });
-
-        // If it matches a blocked tag, REMOVE it completely from the DOM
-        if (tags.some(tag => blockedTags.includes(tag))) {
-            console.log('[9GAG Blocker] Removing article with tags:', tags.join(', '));
-            article.remove();
+const addBlockButtonsToTags = () => {
+    const tags = document.querySelectorAll('.post-tags a');
+    tags.forEach(tag => {
+        if (!tag.querySelector('button')) {
+            addBlockButton(tag);
         }
     });
 };
 
-const initMutationObserver = () => {
+// Add block buttons when page loads
+const initBlockButtons = () => {
     if (!document.body) {
-        setTimeout(initMutationObserver, 100);
+        setTimeout(initBlockButtons, 100);
         return;
     }
 
-    filterArticles();
+    addBlockButtonsToTags();
 
     const observer = new MutationObserver(() => {
-        filterArticles();
+        addBlockButtonsToTags();
     });
 
     observer.observe(document.body, {
@@ -118,4 +93,12 @@ const initMutationObserver = () => {
     console.log('[9GAG Blocker] content.js loaded');
 };
 
-initMutationObserver();
+// Listen for API filter events and trigger layout reflow
+window.addEventListener('9gag-data-filtered', () => {
+    console.log('[9GAG Blocker] Data filtered, triggering reflow');
+    // Trigger a native scroll adjustment to force 9GAG to re-calculate layout
+    window.scrollBy(0, 1);
+    window.scrollBy(0, -1);
+});
+
+initBlockButtons();
