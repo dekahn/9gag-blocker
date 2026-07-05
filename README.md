@@ -5,7 +5,7 @@ A Chrome extension that blocks posts on 9GAG based on tags you don't want to see
 ## How It Works
 
 ### Blocking Tags
-- **Click ✕ on any tag** while browsing 9GAG to block all posts with that tag
+- **Click Block on any tag** while browsing 9GAG to block all posts with that tag
 - **Add tags manually** in the extension popup if you know what you want filtered
 - Posts with blocked tags are filtered **before they render**, preventing layout gaps
 
